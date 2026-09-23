@@ -15,7 +15,19 @@
 
 export const games = [
 
-
+{
+        name: "Grand Theft Auto 3",
+        id: "gta3",
+        genre: "Retro",
+        description: "S is a 2001 open-world action-adventure game developed by DMA Design and published by Rockstar Games.",
+        link: "https://cdn.jsdelivr.net/gh/fusion-webv3/large-games@main/games/grand-theft-auto-3.html",
+        img: `https://cdn.jsdelivr.net/gh/fusion-webv3/large-games@main/games/gta3.jpg`,
+        publisher: "Rockstar",
+        controls: [
+            "Mouse / Keyboard",
+        ],
+        new: true
+    },
 {
         name: "Stardew Valley",
         id: "stardewvalley",
