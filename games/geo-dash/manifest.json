@@ -1,0 +1,38 @@
+{
+ "chunkSize": 19922944,
+ "files": {
+  "gd_web.wasm": {
+   "size": 69826237,
+   "sha256": "76b731fbf95476206c48bf9278edd0891f6e084f3beb3143899fa76535af5810",
+   "chunks": [
+    "gd_web.wasm.part000",
+    "gd_web.wasm.part001",
+    "gd_web.wasm.part002",
+    "gd_web.wasm.part003"
+   ]
+  },
+  "gd_web.data": {
+   "size": 314500859,
+   "sha256": "97046fc16efe6b5c5acbcfbb75886d0164ea11612cdffc8809f121ffb3866536",
+   "chunks": [
+    "gd_web.data.part000",
+    "gd_web.data.part001",
+    "gd_web.data.part002",
+    "gd_web.data.part003",
+    "gd_web.data.part004",
+    "gd_web.data.part005",
+    "gd_web.data.part006",
+    "gd_web.data.part007",
+    "gd_web.data.part008",
+    "gd_web.data.part009",
+    "gd_web.data.part010",
+    "gd_web.data.part011",
+    "gd_web.data.part012",
+    "gd_web.data.part013",
+    "gd_web.data.part014",
+    "gd_web.data.part015"
+   ]
+  }
+ },
+ "build": "5914d09fe0525927"
+}
