@@ -1,0 +1,1625 @@
+<!DOCTYPE html><html><head>
+<meta charset="utf-8"><script>
+/* Offline mode: this page never talks to the proxy or to any other site.
+   The only requests that go through are same-origin static files and the CDN mirrors in GD_CDN_BASES. */
+/* ---- asset CDN config ----
+   GD_CDN_BASES: the same folder on several mirrors, tried in order (each file falls through to the next mirror on any failure).
+   The folder holds gd_web.js, manifest.json and the *.partNNN chunks made by split_assets.mjs
+   GD_ASSET_BUILD: build id of those chunks (split_assets.mjs rewrites it); bump = everyone re-downloads */
+window.GD_CDN_BASES = [
+  'https://cdn.jsdelivr.net/gh/fusion-webv3/large-games@main/games/geo-dash/',
+  'https://cdn.jsdelivr.net/gh/fusion-webv3/large-games@latest/games/geo-dash/',
+  'https://fastly.jsdelivr.net/gh/fusion-webv3/large-games@main/games/geo-dash/',
+  'https://gcore.jsdelivr.net/gh/fusion-webv3/large-games@main/games/geo-dash/',
+  'https://testingcf.jsdelivr.net/gh/fusion-webv3/large-games@main/games/geo-dash/'
+];
+window.GD_CDN_BASE = window.GD_CDN_BASES[0];
+var GD_ASSET_BUILD = 'unset';
+var GD_CDN_NORM = []; window.GD_CDN_BASES.forEach(function (b) { try { GD_CDN_NORM.push(new URL(b).href); } catch (e) {} });
+(function () {
+var nativeFetch = window.fetch.bind(window);
+function blocked(u) {
+try { var x = new URL(String(u), location.href); for (var bi = 0; bi < GD_CDN_NORM.length; bi++) { if (x.href.indexOf(GD_CDN_NORM[bi]) === 0) return false; } return x.origin !== location.origin || /^\/__proxy/.test(x.pathname); }
+catch (e) { return true; }
+}
+window.fetch = function (input, init) {
+var u = (typeof input === 'string') ? input : (input && input.url) || String(input);
+if (blocked(u)) return Promise.reject(new TypeError('offline'));
+return nativeFetch(input, init);
+};
+var xo = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (m, u) {
+if (blocked(u)) throw new TypeError('offline');
+return xo.apply(this, arguments);
+};
+try { navigator.sendBeacon = function () { return false; }; } catch (e) {}
+})();
+</script>
+<script>
+window.__framed=window.self!==window.top;
+window.addEventListener("message",function(e){if(e.data==="gd-focus"){window.focus();var c=document.getElementById("canvas");if(c)try{c.focus({preventScroll:true});}catch(t){}}if(e.data==="gd-fullscreen"){var c2=document.getElementById("canvas");try{if(document.fullscreenElement)document.exitFullscreen();else if(c2){var r=c2.requestFullscreen||c2.webkitRequestFullscreen;if(r)r.call(c2);}}catch(t){}}});
+document.addEventListener("click",function(){try{if(window.parent!==window)window.parent.postMessage("gd-click","*");}catch(t){}});
+</script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#000000"><link rel="icon" href="ref/logo.png"><title>Geometry Dash WASM</title><style>html{background:#000;}body{margin:0;height:100%;color:#ddd;font-family:monospace;overflow:hidden;}#bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;}#bg::before{content:"";position:absolute;top:-4%;left:0;width:200%;height:108%;background:url("ref/fondo_gd.jpg") repeat-x;background-size:50% 100%;filter:blur(12px);animation:bgdrift 90s linear infinite;}@keyframes bgdrift{from{transform:translateX(0);}to{transform:translateX(-50%);}}@media (prefers-reduced-motion:reduce){#bg::before{animation:none;}}#app{display:flex;flex-direction:column;height:100vh;}#logoDock{flex:0 0 auto;display:flex;justify-content:center;padding:6px 0 2px;opacity:0;transition:opacity .45s linear;}#logoDock.in{opacity:1;}#logoDock img{max-height:64px;max-width:40vw;width:auto;height:auto;}#stage{flex:1 1 auto;min-height:0;display:flex;justify-content:center;align-items:center;transform:translateY(-170%);transition:transform .55s cubic-bezier(.2,.85,.25,1);}#stage.in{transform:translateY(0);}canvas{max-width:96vw;max-height:100%;width:auto;height:auto;background:#000;image-rendering:pixelated;outline:none;display:block;user-select:none;}#midbar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 0 6px;font-size:12px;color:#aaa;opacity:0;transform:translateY(120%);transition:transform .55s cubic-bezier(.2,.85,.25,1),opacity .45s;}#midbar.in{opacity:1;transform:translateY(0);}#bars{display:flex;flex-direction:column;gap:5px;transition:transform .5s cubic-bezier(.2,.85,.25,1),opacity .45s;}#bars.fall{transform:translateY(30px);opacity:0;pointer-events:none;}.abrow{display:flex;align-items:center;gap:7px;}.ablabel{width:100px;text-align:right;color:#888;font-size:10px;letter-spacing:.5px;white-space:nowrap;}.abtrack{position:relative;width:220px;height:8px;background:#111;border:1px solid #333;border-radius:4px;overflow:hidden;}.abfill{width:0%;height:100%;background:#ccc;border-radius:3px;transition:width .15s;}.abpct{width:118px;text-align:left;color:#999;font-size:11px;white-space:nowrap;}#bootbars{display:none;align-items:center;gap:7px;}#bootbars.on{display:flex;animation:bootdrop .5s cubic-bezier(.2,.85,.25,1);}@keyframes bootdrop{from{transform:translateY(-16px);opacity:0;}to{transform:translateY(0);opacity:1;}}#bootbars.done{transform:translateY(36px);opacity:0;transition:transform .5s cubic-bezier(.2,.85,.25,1),opacity .45s;pointer-events:none;}#start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:space-between;background:transparent;transition:opacity .5s;}#start.hide{opacity:0;pointer-events:none;}#logoFly{margin-top:14vh;transition:transform .45s cubic-bezier(.2,.9,.25,1);}#logoFly img{max-height:200px;max-width:70vw;width:auto;height:auto;}#logoFly.up{transform:translateY(-13vh) scale(.32);}#loadFly{margin-bottom:30vh;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:transform 1.15s cubic-bezier(.45,0,.6,1),opacity 1.15s linear;}#loadFly img{max-height:150px;max-width:40vw;width:auto;height:auto;display:block;transition:transform .15s;}#loadFly img:hover{transform:scale(1.08);}#loadFly.down{transform:translateY(32vh) scale(.8);opacity:0;}#fsBtn{font:12px/1 monospace;color:#ccc;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:4px;padding:4px 8px;cursor:pointer;transition:color .2s;}#fsBtn:hover{color:#fff;}#credit{color:#888;font-size:11px;white-space:nowrap;}#canvas:fullscreen{max-width:none;max-height:none;width:100%;height:100%;}#canvas:-webkit-full-screen{max-width:none;max-height:none;width:100%;height:100%;}#errOverlay{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:50;max-width:min(92vw,720px);display:none;background:#1a0000;border:1px solid #a33;color:#ffd7d7;font-size:12px;padding:8px 12px;border-radius:6px;white-space:pre-wrap;}#errOverlay.on{display:block;}canvas{touch-action:none;}</style></head><body><div id="errOverlay" role="alert"></div><div id="bg"></div><div id="app"><div id="logoDock"><img src="ref/logo.png" alt="logo" onerror="this.style.display='none'"></div><div id="stage"><canvas id="canvas" width="1920" height="1080"></canvas></div><div id="midbar"><div id="bars"><div class="abrow"><span class="ablabel" id="wasmLabel">WASM</span><div class="abtrack"><div class="abfill" id="wasmFill"></div></div><span class="abpct" id="wasmPct">0%</span></div><div class="abrow"><span class="ablabel" id="dataLabel">DATA</span><div class="abtrack"><div class="abfill" id="dataFill"></div></div><span class="abpct" id="dataPct">0%</span></div></div><div id="bootbars"><div class="abtrack"><div class="abfill" id="bootFill"></div></div><span class="abpct" id="bootPct">0%</span></div><button id="fsBtn" type="button">Fullscreen</button><span id="credit">FUSION</span></div></div><div id="start"><div id="logoFly"><img src="ref/logo.png" alt="logo" onerror="this.style.display='none'"></div><div id="loadFly"><img src="ref/load.png" alt="load" onerror="this.parentElement.textContent='LOADING…';this.remove()"></div></div><script>
+/* First visit: download the chunks from the CDN, join them, verify, store the joined files in IndexedDB.
+   Every later visit: read the joined files straight from IndexedDB (no network).
+   Every file is tried on each mirror in GD_CDN_BASES (two rounds). A chunk that comes back with the wrong
+   size or checksum counts as a failure and the next mirror is tried. If every mirror fails the page shows
+   an error and the game does not start. */
+(function () {
+var DB = 'gdwasm_assets', ST = 'files', PARALLEL = 4, ROUNDS = 2;
+var bases = window.GD_CDN_BASES, pref = 0;
+function openDb() {
+return new Promise(function (res, rej) {
+var r = indexedDB.open(DB, 1);
+r.onupgradeneeded = function () { r.result.createObjectStore(ST); };
+r.onsuccess = function () { res(r.result); };
+r.onerror = function () { rej(r.error || new Error('idb open')); };
+});
+}
+function idbGet(db, k) {
+return new Promise(function (res, rej) {
+var q = db.transaction(ST, 'readonly').objectStore(ST).get(k);
+q.onsuccess = function () { res(q.result); };
+q.onerror = function () { rej(q.error); };
+});
+}
+function idbPut(db, k, v) {
+return new Promise(function (res, rej) {
+var tx = db.transaction(ST, 'readwrite');
+tx.objectStore(ST).put(v, k);
+tx.oncomplete = function () { res(); };
+tx.onerror = tx.onabort = function () { rej(tx.error || new Error('idb put')); };
+});
+}
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function hex(buf) {
+var a = new Uint8Array(buf), s = '';
+for (var i = 0; i < a.length; i++) s += (a[i] < 16 ? '0' : '') + a[i].toString(16);
+return s;
+}
+function canHash() { return !!(window.crypto && crypto.subtle); }
+
+/* run fn(url) for `file` on each mirror in turn, starting at the last mirror that worked;
+   resolves with the first success, rejects with the last error once every mirror failed ROUNDS times */
+async function withBases(file, fn) {
+var n = bases.length, lastErr = null;
+for (var round = 0; round < ROUNDS; round++) {
+for (var k = 0; k < n; k++) {
+var i = (pref + k) % n;
+try {
+var r = await fn(bases[i] + file);
+pref = i;
+return r;
+} catch (e) {
+lastErr = e;
+try { console.warn('[assets] ' + (e && e.message || e)); } catch (_) {}
+}
+}
+if (round < ROUNDS - 1) await sleep(600);
+}
+throw new Error('all mirrors failed for ' + file + ' (last error: ' + (lastErr && lastErr.message || lastErr) + ')');
+}
+window.gdCdnFetch = withBases;
+
+/* previously stored, joined copy (only if it is the build this page expects) */
+async function fromCache(db, name) {
+var rec = await idbGet(db, name);
+if (!rec || !rec.blob || (GD_ASSET_BUILD !== 'unset' && rec.build !== GD_ASSET_BUILD)) return null;
+var ab = await rec.blob.arrayBuffer();
+return ab.byteLength === rec.size ? ab : null;
+}
+
+/* download one chunk straight into its slot of the output buffer */
+function getChunk(file, out, off, len, hash, onBytes) {
+return withBases(file, async function (url) {
+var got = 0;
+try {
+var resp = await fetch(url);
+if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + url);
+var rd = resp.body.getReader();
+for (;;) {
+var r = await rd.read();
+if (r.done) break;
+if (got + r.value.length > len) throw new Error('chunk too long ' + url);
+out.set(r.value, off + got);
+got += r.value.length;
+onBytes(r.value.length);
+}
+if (got !== len) throw new Error('chunk size ' + got + ' != ' + len + ' ' + url);
+if (hash && canHash()) {
+var d = hex(await crypto.subtle.digest('SHA-256', out.subarray(off, off + len)));
+if (d !== hash) throw new Error('chunk checksum mismatch ' + url);
+}
+} catch (e) {
+onBytes(-got);                 /* undo this attempt's progress */
+throw e;
+}
+});
+}
+
+async function downloadFile(name, info, chunkSize, report) {
+var out = new Uint8Array(info.size), loaded = 0, next = 0, failed = null;
+function onBytes(n) {
+loaded += n;
+report(name, Math.max(0, Math.min(loaded, info.size - 1)), info.size);   /* hit 100% only after verify + store */
+}
+async function worker() {
+while (!failed) {
+var i = next++;
+if (i >= info.chunks.length) return;
+var off = i * chunkSize, len = Math.min(chunkSize, info.size - off);
+try { await getChunk(info.chunks[i], out, off, len, info.hashes && info.hashes[i], onBytes); }
+catch (e) { failed = e; return; }
+}
+}
+var ws = [];
+for (var w = 0; w < PARALLEL; w++) ws.push(worker());
+await Promise.all(ws);
+if (failed) throw failed;
+if (canHash() && info.sha256) {
+var d = hex(await crypto.subtle.digest('SHA-256', out));
+if (d !== info.sha256) throw new Error(name + ' failed checksum');
+}
+return out.buffer;
+}
+
+/* resolves { wasm: ArrayBuffer, data: ArrayBuffer }; rejects if every mirror failed */
+window.gdLoadAssets = async function (report) {
+var db = null;
+try { db = await openDb(); } catch (e) {}
+try {
+if (db) {
+var c = await Promise.all([fromCache(db, 'gd_web.wasm'), fromCache(db, 'gd_web.data')]);
+if (c[0] && c[1]) {
+report('wasm', c[0].byteLength, c[0].byteLength);
+report('data', c[1].byteLength, c[1].byteLength);
+return { wasm: c[0], data: c[1] };
+}
+}
+} catch (e) {}
+
+var m = await withBases('manifest.json', async function (url) {
+var mr = await fetch(url, { cache: 'no-cache' });
+if (!mr.ok) throw new Error('manifest HTTP ' + mr.status + ' ' + url);
+var j = await mr.json();
+if (!j || !j.files || !j.files['gd_web.wasm'] || !j.files['gd_web.data']) throw new Error('bad manifest ' + url);
+if (GD_ASSET_BUILD !== 'unset' && j.build !== GD_ASSET_BUILD) throw new Error('manifest is build ' + j.build + ', page wants ' + GD_ASSET_BUILD + ' ' + url);
+return j;
+});
+window.__gdManifest = m;
+var buildId = GD_ASSET_BUILD !== 'unset' ? GD_ASSET_BUILD : m.build;
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+var fw = m.files['gd_web.wasm'], fd = m.files['gd_web.data'];
+report('wasm', 0, fw.size);
+report('data', 0, fd.size);
+var res = await Promise.all([
+downloadFile('gd_web.wasm', fw, m.chunkSize, function (n, l, t) { report('wasm', l, t); }),
+downloadFile('gd_web.data', fd, m.chunkSize, function (n, l, t) { report('data', l, t); })
+]);
+if (db) {
+try {
+await idbPut(db, 'gd_web.wasm', { build: buildId, size: fw.size, blob: new Blob([res[0]]) });
+await idbPut(db, 'gd_web.data', { build: buildId, size: fd.size, blob: new Blob([res[1]]) });
+} catch (e) {
+/* quota or private mode: play anyway, we will just download again next time */
+try { await idbPut(db, 'gd_web.wasm', { build: '', size: 0, blob: null }); } catch (e2) {}
+}
+}
+report('wasm', fw.size, fw.size);
+report('data', fd.size, fd.size);
+return { wasm: res[0], data: res[1] };
+};
+})();
+</script>
+<script>try { console.log = console.info = console.debug = function () {}; } catch (e) {}
+function say() {}
+var gdProg = 0, gdProgDone = false;
+var gdAssetDone = { wasm: false, data: false };
+var gdAssetsFell = false;
+var wasmFill = document.getElementById('wasmFill');
+var dataFill = document.getElementById('dataFill');
+var wasmPct = document.getElementById('wasmPct');
+var dataPct = document.getElementById('dataPct');
+var wasmLabel = document.getElementById('wasmLabel');
+var dataLabel = document.getElementById('dataLabel');
+var bootFill = document.getElementById('bootFill');
+var bootPct = document.getElementById('bootPct');
+function gdFmtSize(n) {
+if (!n) return '0 MB';
+if (n < 1048576) return Math.round(n / 1024) + ' KB';
+return (n / 1048576).toFixed(1) + ' MB';
+}
+var GD_SIZE_HINT = { wasm: 70192990, data: 314500859 };
+var GD_BUILD_ID = 'a6f253af4d4bd0a4';
+var GD_ASSET_CACHE = 'gdwasm-assets';
+try {
+if (window.caches) caches.delete(GD_ASSET_CACHE).catch(function () {});
+} catch (e) {}
+(function () {
+var baseFetch = window.fetch.bind(window);
+window.fetch = function (input, init) {
+var u = typeof input === 'string' ? input : (input && input.url) || '';
+if (/(^|\/)gd_web\.(data|wasm|js)([?#]|$)/.test(u)) {
+init = Object.assign({}, init || {}, { cache: 'no-store' });
+}
+return baseFetch(input, init);
+};
+})();
+function gdSizeHint(which) {
+return which === 'wasm' ? GD_SIZE_HINT.wasm : GD_SIZE_HINT.data;
+}
+function gdLearnedSize(which) {
+try {
+return Number(localStorage.getItem(
+which === 'wasm' ? 'gdWasmSize' : 'gdDataSize')) || 0;
+} catch (e) { return 0; }
+}
+function setAssetBar(which, loaded, total) {
+var fill = which === 'wasm' ? wasmFill : dataFill;
+var pctEl = which === 'wasm' ? wasmPct : dataPct;
+var label = which === 'wasm' ? wasmLabel : dataLabel;
+if (!fill) return;
+var name = which === 'wasm' ? 'WASM' : 'DATA';
+var learned = gdLearnedSize(which);
+var hint = gdSizeHint(which);
+var known = hint > 0 ? hint
+: (learned > 0 ? learned : (total > 0 ? total : 0));
+var exact = known > 0;
+if (label) {
+var fallback = which === 'wasm' ? 110 * 1024 * 1024 : 320 * 1024 * 1024;
+label.textContent = name + ' (' + (exact ? '' : '~') +
+gdFmtSize(known > 0 ? known : fallback) + ')';
+}
+var p;
+if (known > 0) {
+p = Math.min(100, loaded / known * 100);
+} else {
+var est = which === 'wasm' ? 110 * 1024 * 1024 : 320 * 1024 * 1024;
+p = Math.min(95, loaded / est * 95);
+}
+fill.style.width = p.toFixed(1) + '%';
+if (loaded <= 0) pctEl.textContent = '0%';
+else if (known > 0) {
+pctEl.textContent = p.toFixed(0) + '% (' + gdFmtSize(loaded) + ')';
+} else {
+pctEl.textContent = gdFmtSize(loaded);
+}
+if (known > 0 && loaded >= known) {
+gdAssetDone[which] = true;
+try {
+localStorage.setItem(which === 'wasm' ? 'gdWasmSize' : 'gdDataSize',
+String(Math.max(loaded, known)));
+} catch (e) {}
+}
+if (gdAssetDone.wasm && gdAssetDone.data) assetsDone();
+}
+function forceAssetsDone() {
+gdAssetDone.wasm = true;
+gdAssetDone.data = true;
+setAssetBar('wasm', 1, 1);
+setAssetBar('data', 1, 1);
+assetsDone();
+}
+function assetsDone() {
+if (gdAssetsFell) return;
+gdAssetsFell = true;
+var bars = document.getElementById('bars');
+var boot = document.getElementById('bootbars');
+if (bars) bars.classList.add('fall');
+setTimeout(function () {
+if (bars) bars.style.display = 'none';
+if (boot) boot.classList.add('on');
+}, 520);
+}
+function bootDone() {
+var boot = document.getElementById('bootbars');
+if (!boot || boot.classList.contains('done')) return;
+boot.classList.add('done');
+setTimeout(function () { boot.style.display = 'none'; }, 520);
+}
+function setProgress(p, exact) {
+if (gdProgDone && p < 100) return;
+p = Math.max(0, Math.min(100, p));
+if (p < gdProg && !exact) return;
+gdProg = p;
+if (bootFill) bootFill.style.width = p.toFixed(1) + '%';
+if (bootPct) bootPct.textContent = p.toFixed(0) + '%';
+if (p >= 100) { gdProgDone = true; bootDone(); }
+}
+function resetProgress() {
+gdProgDone = false;
+gdProg = 0;
+gdAssetsFell = false;
+gdAssetDone = { wasm: false, data: false };
+var bars = document.getElementById('bars');
+var boot = document.getElementById('bootbars');
+if (bars) { bars.style.display = ''; bars.classList.remove('fall'); }
+if (boot) { boot.classList.remove('on'); boot.classList.remove('done'); }
+setAssetBar('wasm', 0, gdLearnedSize('wasm'));
+setAssetBar('data', 0, gdLearnedSize('data'));
+if (bootFill) bootFill.style.width = '0%';
+if (bootPct) bootPct.textContent = '0%';
+}
+window.gdFirstFrame = function () {
+forceAssetsDone();
+setProgress(100);
+};
+var gdSaveTimer = null;
+var gdLastSave = 0;
+function scheduleSave(now) {
+if (!window.__gdRuntimeReady) return;
+if (gdSaveTimer) clearTimeout(gdSaveTimer);
+gdSaveTimer = setTimeout(function () {
+gdSaveTimer = null;
+if (!now && Date.now() - gdLastSave < 180000) return;
+gdLastSave = Date.now();
+try { if (Module._gd_request_save) Module._gd_request_save(); } catch (e) {}
+}, now ? 0 : 4000);
+}
+document.addEventListener('visibilitychange', function () {
+if (document.hidden) scheduleSave(true);
+});
+function gdProgressTick() {
+if (!window.__gdLoadStarted || gdProgDone) return;
+if (!gdAssetsFell) {
+var df = Module.dataFileDownloads;
+if (df) {
+for (var k in df) {
+var e = df[k];
+var which = /wasm/i.test(k) ? 'wasm'
+: (/\.data/i.test(k) ? 'data' : null);
+if (which) setAssetBar(which, e.loaded || 0, e.total || 0);
+}
+}
+} else if (gdProg < 78) {
+setProgress(gdProg + 0.35);
+}
+}
+setInterval(gdProgressTick, 200);
+document.addEventListener('visibilitychange', function () {
+if (!document.hidden) gdProgressTick();
+});
+(function () {
+var lastT = performance.now();
+function tick(now) {
+if (now - lastT >= 500) {
+lastT = now;
+if (window.__gdRuntimeReady && !window.__gdGotFrame) {
+var n = 0;
+try { if (Module._gd_frames_get) n = Module._gd_frames_get() | 0; } catch (e) {}
+if (n > 0) { window.__gdGotFrame = true; setProgress(100); }
+}
+}
+if (!window.__gdGotFrame) requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+})();
+
+/* Map an IndexedDB key to the virtual-filesystem path the game really reads.
+   The game reads its saves (CC*.dat) from /AppData, whichever way the key was
+   written: the guest's own persist hook ('AppData/x', '/AppData/x', 'Resources/x',
+   'x.dat') or the save layer's mirror ('fs:/AppData/x', 'fs:/Resources/x'). */
+window.__gdPersistTarget = function (k) {
+var s = String(k), abs = s.indexOf('fs:') === 0;
+if (abs) s = s.slice(3);
+s = s.replace(/^\/+/, '');
+var m = s.match(/^(?:Resources\/)?([^\/]+\.dat)$/);
+if (m) return '/AppData/' + m[1];
+if (s.indexOf('AppData/') === 0) return '/' + s;
+return (abs ? '/' : '/Resources/') + s;
+};
+window.__gdPersistPrio = function (k) {
+var s = String(k);
+if (s.indexOf('fs:') !== 0) return 3;
+return /^fs:\/*Resources\//.test(s) ? 1 : 2;
+};
+/* Called from the guest's gd_js_persist_save hook: overwrite the real file in
+   the virtual filesystem, not just the IndexedDB copy. */
+window.__gdPersistWrite = function (name, bytes) {
+try {
+var bn = String(name).split('/').pop();
+if (window.__gdUser && window.__gdUser.ingest && /^CC[^\/]*\.dat$/.test(bn)) window.__gdUser.ingest(bn, new Uint8Array(bytes), 'game save event', String(name));
+} catch (e0) {}
+try {
+var t = window.__gdPersistTarget(name);
+if (t.indexOf('/AppData/') !== 0) return;
+var FS = Module.FS;
+try { FS.stat('/AppData'); } catch (e) { FS.mkdir('/AppData'); }
+FS.writeFile(t, new Uint8Array(bytes));
+if (window.__gdSave) window.__gdSave.mark(t);
+} catch (e) { try { console.warn('[persist] FS write failed: ' + e); } catch (_) {} }
+};
+function restoreSaves(then) {
+var called = false;
+function finish() { if (!called) { called = true; try { if (window.__gdSave) window.__gdSave.start(); } catch (e) {} then(); } }
+setTimeout(finish, 45000);
+try {
+var req = indexedDB.open('gdwasm_saves', 1);
+req.onupgradeneeded = function () { req.result.createObjectStore('files'); };
+req.onerror = function () { say('[persist] idb open failed'); finish(); };
+req.onsuccess = function () {
+var store, keysReq;
+try {
+store = req.result.transaction('files', 'readonly').objectStore('files');
+keysReq = store.getAllKeys();
+} catch (e) { finish(); return; }
+keysReq.onerror = finish;
+keysReq.onsuccess = function () {
+var keys = keysReq.result || [];
+keys.sort(function (x, y) { return (String(x).indexOf('fs:') === 0) - (String(y).indexOf('fs:') === 0); });
+say('[persist] restore: ' + keys.length + ' file(s) in DB' +
+(keys.length ? ': ' + keys.join(', ') : ''));
+if (!keys.length) { (window.__gdUserInit || function (c, f) { f(); })([], finish); return; }
+var pending = keys.length;
+var picked = {};
+var cands = [];
+function applyAll() {
+Object.keys(picked).forEach(function (t) {
+var c = picked[t];
+try {
+var parts = t.split('/').filter(Boolean), cur = '';
+for (var pi = 0; pi < parts.length - 1; ++pi) {
+cur += '/' + parts[pi];
+try { Module.FS.stat(cur); } catch (e2) { Module.FS.mkdir(cur); }
+}
+Module.FS.writeFile(t, c.data);
+if (window.__gdSave) window.__gdSave.mark(t);
+say('[persist] restored ' + t + ' (' + c.data.byteLength + ' bytes) from key ' + c.key);
+} catch (e) { say('[persist] restore ' + t + ': ' + e); }
+});
+}
+function one() { if (--pending === 0) { applyAll(); (window.__gdUserInit || function (c, f) { f(); })(cands, finish); } }
+keys.forEach(function (k) {
+var g = store.get(k);
+g.onerror = one;
+g.onsuccess = function () {
+try {
+if (g.result && g.result.byteLength) {
+var t = window.__gdPersistTarget(k);
+var nm0 = t.split('/').pop();
+if (/^CC[^\/]*\.dat$/.test(nm0) && String(k).indexOf('bak:') !== 0) cands.push({ name: nm0, key: String(k), bytes: new Uint8Array(g.result) });
+/* several keys can map to one file; the game's own save key beats the
+   fs: mirror copies, and /AppData beats the old /Resources copy */
+var pr = window.__gdPersistPrio(k);
+if (!picked[t] || picked[t].prio < pr) picked[t] = { prio: pr, key: k, data: new Uint8Array(g.result) };
+}
+} catch (e) { say('[persist] restore ' + k + ': ' + e); }
+one();
+};
+});
+};
+};
+} catch (e) { finish(); }
+}
+var Module = {
+canvas: document.getElementById('canvas'),
+gdInputQueue: [],
+gdCursorPos: [0, 0],
+locateFile: function (p) { return p; },
+get dataFileDownloads() { return this.__dfd; },
+set dataFileDownloads(v) {
+if (this.__dfd === v) return;
+this.__dfd = new Proxy(v || {}, {
+set: function (t, k, val) {
+t[k] = val;
+try {
+var which = /wasm/i.test(k) ? 'wasm'
+: (/\.data/i.test(k) ? 'data' : null);
+if (which) setAssetBar(which, (val && val.loaded) || 0,
+(val && val.total) || 0);
+} catch (e) {}
+return true;
+}
+});
+},
+instantiateWasm: function (imports, success) {
+var url = 'gd_web.wasm';
+function report(loaded, total) {
+Module.dataFileDownloads = Module.dataFileDownloads || {};
+Module.dataFileDownloads['gd_web.wasm'] = { loaded: loaded, total: total };
+try { setAssetBar('wasm', loaded, total); } catch (e) {}
+}
+function markDone() {
+var real = gdSizeHint('wasm') || gdLearnedSize('wasm') || 1;
+gdAssetDone.wasm = true;
+setAssetBar('wasm', real, real);
+}
+function instantiate(ab) {
+return WebAssembly.instantiate(ab, imports).then(function (r) {
+success(r.instance, r.module);
+});
+}
+var pre = window.__gdAssets && window.__gdAssets.wasm;
+if (!pre) { say('[wasm] no downloaded wasm available'); return {}; }
+window.__gdAssets.wasm = null;
+markDone();
+instantiate(pre).catch(function (e) { say('[wasm] failed: ' + e); });
+return {};
+},
+print: function (s) { say(s); },
+printErr: function (s) { say(s); },
+setStatus: function (t) {
+if (!t) return;
+var m = /\((\d+)\/(\d+)\)/.exec(t);
+if (m) {
+var total = +m[2] || 1;
+setProgress(+m[1] / total * 78);
+} else if (t.indexOf('Downloading') === 0) {
+setProgress(4);
+} else if (t.indexOf('Running') === 0) {
+forceAssetsDone();
+setProgress(80);
+} else if (t.indexOf('Compiling') === 0) {
+setProgress(76);
+}
+},
+onRuntimeInitialized: function () {
+window.__gdRuntimeReady = true;
+if (Module._gd_log_set) Module._gd_log_set(0);
+setProgress(82);
+try {
+Module.FS.chdir('/Resources');
+} catch (e) {
+say('FS.chdir failed: ' + e);
+}
+setTimeout(function () {
+restoreSaves(function () {
+setProgress(88);
+try {
+const r = Module._gd_boot();
+setProgress(92);
+if (r && typeof r.then === 'function') {
+r.then(function () { say('gd_boot resolved'); setProgress(100); })
+.catch(function (e) {
+try {
+var ov = document.getElementById('errOverlay');
+if (ov) {
+ov.textContent = 'The game crashed (' + e + '). Reload the page to keep playing.';
+ov.classList.add('on');
+}
+} catch (e2) {}
+say('gd_boot rejected: ' + e);
+});
+} else {
+say('gd_boot returned (sync)');
+setProgress(100);
+}
+} catch (e) {
+say('gd_boot exception: ' + e);
+}
+});
+}, 100);
+}
+};
+var started = false;
+function gdStart() {
+if (started) return;
+started = true;
+window.__gdLoadStarted = true;
+resetProgress();
+var startEl = document.getElementById('start');
+var flyEl = document.getElementById('logoFly');
+var s = 0.32;
+try {
+var dh = document.querySelector('#logoDock img').getBoundingClientRect().height;
+var fh = flyEl.querySelector('img').getBoundingClientRect().height;
+if (dh > 0 && fh > 0 && dh / fh < 1) s = dh / fh;
+} catch (e) {}
+flyEl.style.transform = 'translateY(-13vh) scale(' + s + ')';
+document.getElementById('loadFly').classList.add('down');
+setTimeout(function () { startEl.classList.add('hide'); }, 420);
+setTimeout(function () { document.getElementById('logoDock').classList.add('in'); }, 420);
+setTimeout(function () { document.getElementById('stage').classList.add('in'); }, 430);
+setTimeout(function () { document.getElementById('midbar').classList.add('in'); }, 480);
+setTimeout(function () {
+startEl.style.display = 'none';
+window.__gdInputReady = true;
+if (window.__gdAckFocus) window.__gdAckFocus();
+}, 1700);
+function loadModule() {
+window.gdCdnFetch('gd_web.js', function (url) {
+return fetch(url, { cache: 'no-store' }).then(function (r) {
+if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+return r.arrayBuffer();
+}).then(function (ab) {
+var mj = window.__gdManifest && window.__gdManifest.js;
+if (mj && mj.size && ab.byteLength !== mj.size) throw new Error('gd_web.js size mismatch ' + url);
+if (ab.byteLength < 1000) throw new Error('gd_web.js looks empty ' + url);
+if (mj && mj.sha256 && window.crypto && crypto.subtle) {
+return crypto.subtle.digest('SHA-256', ab).then(function (d) {
+var a = new Uint8Array(d), s = '';
+for (var i = 0; i < a.length; i++) s += (a[i] < 16 ? '0' : '') + a[i].toString(16);
+if (s !== mj.sha256) throw new Error('gd_web.js checksum mismatch ' + url);
+return new TextDecoder().decode(ab);
+});
+}
+return new TextDecoder().decode(ab);
+});
+}).then(function (code) {
+var persistPattern = /var bytes = HEAPU8\.slice\(data, data \+ len\);\s*var nm = UTF8ToString\(name\);/;
+if (persistPattern.test(code)) {
+code = code.replace(persistPattern, function(m) {
+return m + '\n    try { if (window.__gdPersistWrite) window.__gdPersistWrite(nm, bytes); } catch (e) {}' + '\n    try { if (window.__gdSave) window.__gdSave.soon(); } catch (e) {}';
+});
+say('[persist-capture] gd_js_persist_save hook installed');
+} else {
+say('[persist-capture] WARNING: gd_js_persist_save pattern not found');
+}
+var openPat = /(function ___syscall_openat\([^)]*\)\s*\{[\s\S]*?path = SYSCALLS\.calculateAt\(dirfd, path\);)/;
+if (openPat.test(code)) {
+code = code.replace(openPat, function (m) { return m + '\n    try { if (window.__gdOpenHook) window.__gdOpenHook(path, flags); } catch (e) {}'; });
+say('[user] open hook installed');
+} else {
+say('[user] WARNING: openat pattern not found');
+}
+var statPat = /(function ___syscall_newfstatat\([^)]*\)\s*\{[\s\S]*?path = SYSCALLS\.calculateAt\(dirfd, path, allowEmpty\);)/;
+if (statPat.test(code)) {
+code = code.replace(statPat, function (m) { return m + '\n    try { if (window.__gdOpenHook) window.__gdOpenHook(path, 0); } catch (e) {}'; });
+say('[user] stat hook installed');
+}
+var s = document.createElement('script');
+s.textContent = code;
+document.body.appendChild(s);
+}).catch(function (e) {
+say('failed to load gd_web.js: ' + e);
+try {
+var ov = document.getElementById('errOverlay');
+if (ov) {
+ov.textContent = 'Could not download the game script (' + (e && e.message || e) + '). Check your connection and reload the page to try again.';
+ov.classList.add('on');
+}
+} catch (e2) {}
+});
+}
+gdLoadAssets(function (which, loaded, total) {
+if (total > 0) GD_SIZE_HINT[which] = total;
+setAssetBar(which, loaded, total);
+}).then(function (a) {
+window.__gdAssets = a;
+Module.getPreloadedPackage = function () { var d = a.data; a.data = null; return d; };
+loadModule();
+}).catch(function (e) {
+try {
+var ov = document.getElementById('errOverlay');
+if (ov) {
+ov.textContent = 'Could not download the game files (' + (e && e.message || e) + '). Check your connection and reload the page to try again.';
+ov.classList.add('on');
+}
+} catch (e2) {}
+});
+}
+document.getElementById('loadFly').addEventListener('click', gdStart);
+document.addEventListener('keydown', function (e) {
+if (!started && (e.code === 'Space' || e.code === 'Enter' ||
+e.code === 'NumpadEnter')) {
+e.preventDefault();
+gdStart();
+}
+});</script>
+<script>(function () {
+const el = document.getElementById('canvas');
+const WM_MOUSEMOVE = 0x200, WM_LBUTTONDOWN = 0x201, WM_LBUTTONUP = 0x202,
+WM_RBUTTONDOWN = 0x204, WM_RBUTTONUP = 0x205,
+WM_MBUTTONDOWN = 0x207, WM_MBUTTONUP = 0x208;
+function ready() { return window.__gdInputReady === true; }
+function overCanvas(e) {
+var r;
+if (!ready() || !el) return false;
+if (e.target && e.target.closest &&
+e.target.closest('#start, #loadFly, a, button, input, ' +
+'textarea, select')) {
+return false;
+}
+r = el.getBoundingClientRect();
+return e.clientX >= r.left && e.clientX < r.right &&
+e.clientY >= r.top && e.clientY < r.bottom;
+}
+function pos(e) {
+const r = el.getBoundingClientRect();
+const x = Math.max(0, Math.min(1919,
+Math.round((e.clientX - r.left) * 1920 / r.width)));
+const y = Math.max(0, Math.min(1079,
+Math.round((e.clientY - r.top) * 1080 / r.height)));
+Module.gdCursorPos[0] = x;
+Module.gdCursorPos[1] = y;
+return (x & 0xffff) | ((y & 0xffff) << 16);
+}
+function push(m, w, l) { Module.gdInputQueue.push([m | 0, w | 0, l | 0]); }
+var ackedFocus = false;
+function ackFocus() {
+if (ackedFocus) return;
+ackedFocus = true;
+push(0x0006, 1, 0);
+push(0x0007, 0, 0);
+push(0x001c, 1, 0);
+}
+window.__gdAckFocus = ackFocus;
+window.addEventListener('mousedown', function (e) {
+if (!overCanvas(e)) return;
+console.log('[page] mousedown btn=' + e.button + ' lp=0x' + pos(e).toString(16));
+var m = e.button === 2 ? WM_RBUTTONDOWN : (e.button === 1 ? WM_MBUTTONDOWN : WM_LBUTTONDOWN);
+var w = e.button === 2 ? 2 : (e.button === 1 ? 16 : 1);
+gdButtonsDown |= (1 << e.button);
+push(m, w, pos(e));
+e.preventDefault();
+});
+var gdButtonsDown = 0;
+window.addEventListener('mouseup', function (e) {
+if (!ready()) return;
+gdButtonsDown &= ~(1 << e.button);
+var m = e.button === 2 ? WM_RBUTTONUP : (e.button === 1 ? WM_MBUTTONUP : WM_LBUTTONUP);
+push(m, 0, pos(e));
+push(WM_MOUSEMOVE, 0, pos(e));
+if (e.target === el) e.preventDefault();
+});
+window.addEventListener('blur', function () {
+if (!ready() || !gdButtonsDown) return;
+for (var b = 0; b < 3; ++b) {
+if (gdButtonsDown & (1 << b)) {
+var m = b === 2 ? WM_RBUTTONUP : (b === 1 ? WM_MBUTTONUP : WM_LBUTTONUP);
+push(m, 0, (Module.gdCursorPos[0] & 0xffff) |
+(Module.gdCursorPos[1] << 16));
+}
+}
+gdButtonsDown = 0;
+});
+window.addEventListener('mousemove', function (e) {
+if (!ready()) return;
+var q = Module.gdInputQueue;
+var w = (e.buttons & 1) ? 1 : 0, l = pos(e);
+if (q.length && q[q.length - 1][0] === WM_MOUSEMOVE) {
+q[q.length - 1] = [WM_MOUSEMOVE, w, l];
+} else {
+q.push([WM_MOUSEMOVE, w, l]);
+}
+});
+window.addEventListener('wheel', function (e) {
+if (!overCanvas(e)) return;
+var lp = pos(e);
+var dv = -e.deltaY, dh = e.deltaX;
+if (Math.abs(dv) >= Math.abs(dh)) {
+var notch = dv > 0 ? 120 : -120;
+push(0x020A, (notch & 0xFFFF) << 16, lp);
+} else {
+var hnotch = dh > 0 ? -120 : 120;
+push(0x020E, (hnotch & 0xFFFF) << 16, lp);
+}
+e.preventDefault();
+}, { passive: false });
+el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+el.tabIndex = 0;
+el.addEventListener('mousedown', function () { el.focus(); });
+var rawKeyN = 0;
+document.addEventListener('keydown', function (e) {
+if (rawKeyN++ < 10)
+console.log('[page] raw keydown code=' + e.code + ' key=' + e.key);
+}, true);
+var VK = { 'Escape':0x1B,'Space':0x20,'Enter':0x0D,'Backspace':0x08,'Tab':0x09,
+'ArrowLeft':0x25,'ArrowUp':0x26,'ArrowRight':0x27,'ArrowDown':0x28,
+'KeyW':0x57,'KeyA':0x41,'KeyS':0x53,'KeyD':0x44,
+'KeyQ':0x51,'KeyE':0x45,'KeyR':0x52,'KeyF':0x46,'KeyP':0x50 };
+var SCAN = { 'Escape':0x01,'Space':0x39,'Enter':0x1C,'Backspace':0x0E,'Tab':0x0F,
+'ArrowLeft':0x4B,'ArrowUp':0x48,'ArrowRight':0x4D,'ArrowDown':0x50,
+'KeyW':0x11,'KeyA':0x1E,'KeyS':0x1F,'KeyD':0x20,
+'KeyQ':0x10,'KeyE':0x12,'KeyR':0x13,'KeyF':0x21,'KeyP':0x19 };
+var EXT = { 'ArrowLeft':1,'ArrowUp':1,'ArrowRight':1,'ArrowDown':1 };
+Module.gdKeyState = new Uint8Array(256);
+function keyEvent(e, down) {
+if (!ready()) return;
+try {
+if (window.getSelection && String(window.getSelection()) !== '') return;
+} catch (err) {}
+var vk = VK[e.code] || e.keyCode || 0;
+if (down) {
+var ch = 0;
+if (e.key && e.key.length === 1) ch = e.key.charCodeAt(0);
+else if (e.code === 'Backspace') ch = 0x08;
+else if (e.code === 'Enter') ch = 0x0D;
+if (ch) {
+var clp = 1 | ((SCAN[e.code] || 0) << 16);
+if (EXT[e.code]) clp |= 0x1000000;
+if (keyEvent.cn === undefined) keyEvent.cn = 0;
+if (keyEvent.cn++ < 12)
+console.log('[page] char=0x' + ch.toString(16) + ' code=' + e.code);
+push(0x0102, ch, clp);
+}
+}
+if (!vk) return;
+if (keyEvent.n === undefined) keyEvent.n = 0;
+if (keyEvent.n++ < 8)
+console.log('[page] key ' + (down ? 'down' : 'up') + ' code=' + e.code +
+' vk=0x' + vk.toString(16));
+Module.gdKeyState[vk & 0xff] = down ? 1 : 0;
+var scan = SCAN[e.code] || 0;
+var lp = 1 | (scan << 16);
+if (EXT[e.code]) lp |= 0x1000000;
+if (!down) lp |= -1073741824;
+push(down ? 0x100 : 0x101, vk, lp);
+if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown')
+e.preventDefault();
+}
+window.addEventListener('keydown', function (e) { keyEvent(e, true); });
+window.addEventListener('keyup', function (e) { keyEvent(e, false); });
+})();</script>
+<script>(function(){var b=document.getElementById('fsBtn'),d=document,c=document.getElementById('canvas');function F(){return d.fullscreenElement||d.webkitFullscreenElement||d.mozFullScreenElement||d.msFullscreenElement;}function U(){b.textContent=F()?'Exit Fullscreen':'Fullscreen';}function T(){try{if(F()){(d.exitFullscreen||d.webkitExitFullscreen||d.mozCancelFullScreen||d.msExitFullscreen).call(d);}else{(c.requestFullscreen||c.webkitRequestFullscreen||c.mozRequestFullScreen||c.msRequestFullscreen).call(c);}}catch(err){}}b.addEventListener('click',function(v){v.preventDefault();v.stopPropagation();T();b.blur();});['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(function(n){d.addEventListener(n,U);});U();})();</script><script>(function(){
+var ov=document.getElementById('errOverlay');
+function err(m){ if(ov){ov.textContent=m;ov.classList.add('on');} }
+try{
+  var c=document.createElement('canvas');
+  var gl=c.getContext('webgl2');
+  if(!gl) err('WebGL2 not available - use Chrome/Edge 137+ with hardware acceleration.');
+  if(!window.crossOriginIsolated) console.log('[page] note: page is not cross-origin isolated; threads may be limited.');
+  if(!('gstSync' in (WebAssembly||{})) && !window.crossOriginIsolated){}
+}catch(e){ err('Feature check failed: '+e); }
+var el=document.getElementById('canvas');
+function tPos(t){ var r=el.getBoundingClientRect();
+  var x=Math.max(0,Math.min(1919,Math.round((t.clientX-r.left)*1920/r.width)));
+  var y=Math.max(0,Math.min(1079,Math.round((t.clientY-r.top)*1080/r.height)));
+  try{ Module.gdCursorPos[0]=x; Module.gdCursorPos[1]=y; }catch(e){}
+  return (x&0xffff)|((y&0xffff)<<16); }
+function tOK(e){ if(window.__gdInputReady!==true) return false;
+  if(e.target&&e.target.closest&&e.target.closest('#start,#loadFly,button,input,textarea,select')) return false;
+  return true; }
+if(el){
+  el.addEventListener('touchstart',function(e){ if(!tOK(e))return;
+    for(var i=0;i<e.changedTouches.length;i++){ var t=e.changedTouches[i];
+      try{Module.gdInputQueue.push([0x201,1,tPos(t)]);}catch(_){} }
+    try{el.focus();}catch(_){} e.preventDefault(); },{passive:false});
+  el.addEventListener('touchmove',function(e){ if(!tOK(e))return;
+    e.preventDefault(); },{passive:false});
+  el.addEventListener('touchend',function(e){ if(window.__gdInputReady!==true)return;
+    for(var i=0;i<e.changedTouches.length;i++){ var t=e.changedTouches[i];
+      try{Module.gdInputQueue.push([0x202,0,tPos(t)]);Module.gdInputQueue.push([0x200,0,tPos(t)]);}catch(_){} }
+    e.preventDefault(); },{passive:false});
+  el.addEventListener('touchcancel',function(e){ if(window.__gdInputReady!==true)return;
+    try{Module.gdInputQueue.push([0x202,0,(Module.gdCursorPos[0]&0xffff)|(Module.gdCursorPos[1]<<16)]);}catch(_){}
+    e.preventDefault(); },{passive:false});
+}
+window.addEventListener('error',function(e){ if(e&&e.message&&/JSPI|WebAssembly|wasm|memory/i.test(String(e.message))) err('Runtime error: '+e.message); });
+})();</script>
+<script>
+/* Save-file helpers: CCGameManager.dat is XOR 0x0B -> Base64URL -> gzip -> plist XML. */
+(function () {
+    function xor11(b) { var o = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) o[i] = b[i] ^ 11; return o; }
+    function b64uDecode(s) {
+        s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+        var bin = atob(s), o = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i);
+        return o;
+    }
+    function b64uEncode(b) {
+        var bin = '';
+        for (var i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, Math.min(i + 0x8000, b.length)));
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_');   /* keep '=' padding like the game */
+    }
+    async function pipe(bytes, stream) {
+        return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+    }
+    var lastFmt = 'xor';
+    function asText(b) { return new TextDecoder().decode(b); }
+    function hexHead(b) { var o = []; for (var i = 0; i < Math.min(16, b.length); i++) o.push((b[i] < 16 ? '0' : '') + b[i].toString(16)); return o.join(' '); }
+    async function decodeSave(bytes) {
+        bytes = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+        if (/^\uFEFF?\s*(<\?xml|<plist|<dict)/.test(asText(bytes.subarray(0, 64)))) { lastFmt = 'xml'; return asText(bytes); }
+        if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+            lastFmt = 'gz'; return asText(await pipe(bytes, new DecompressionStream('gzip')));
+        }
+        var tries = [], variants = [['xor', xor11(bytes)], ['b64', bytes]];
+        for (var i = 0; i < variants.length; i++) {
+            var m = /[A-Za-z0-9_+\/-]{16,}={0,2}/.exec(asText(variants[i][1]));
+            if (!m) { tries.push(variants[i][0] + ': no base64 text'); continue; }
+            try {
+                var xml = asText(await pipe(b64uDecode(m[0]), new DecompressionStream('gzip')));
+                lastFmt = variants[i][0]; return xml;
+            } catch (e) { tries.push(variants[i][0] + ': ' + (e && e.message || e)); }
+        }
+        throw new Error('Unrecognised save format (' + bytes.length + ' bytes, starts with ' + hexHead(bytes) + '; ' + tries.join('; ') + ')');
+    }
+    async function encodeSave(xml, fmt) {
+        fmt = fmt || lastFmt;
+        var raw = new TextEncoder().encode(xml);
+        if (fmt === 'xml') return raw;
+        var gz = await pipe(raw, new CompressionStream('gzip'));
+        if (fmt === 'gz') return gz;
+        var b64 = new TextEncoder().encode(b64uEncode(gz));
+        return fmt === 'b64' ? b64 : xor11(b64);
+    }
+
+
+    function gmdInner(gmd) {
+        gmd = gmd.replace(/^\uFEFF/, '').replace(/^\s*<\?xml[^>]*\?>\s*/, '').trim();
+        if (gmd.indexOf('<d>') !== 0 || gmd.lastIndexOf('</d>') !== gmd.length - 4) throw new Error('Not a valid GMD file.');
+        var inner = gmd.slice(3, -4);
+        if (!/<k>k4<\/k><s>/.test(inner)) throw new Error('GMD has no k4 level data.');
+        /* locally stored levels are type 2 (editor level) */
+        inner = /<k>k21<\/k><i>-?\d+<\/i>/.test(inner) ? inner.replace(/<k>k21<\/k><i>-?\d+<\/i>/, '<k>k21</k><i>2</i>') : inner + '<k>k21</k><i>2</i>';
+        return inner;
+    }
+
+    /* ---- saved online levels: CCGameManager.dat -> GLM_03 (levels) + GLM_07 (downloaded flags); songs in MDLM_001 ---- */
+    function scanDict(xml, key) {
+        var at = xml.indexOf('<k>' + key + '</k>');
+        if (at < 0) return null;
+        var after = at + key.length + 7;
+        var sc = /^<d\s*\/>/.exec(xml.slice(after, after + 8));
+        if (sc) return { empty: true, start: after, end: after + sc[0].length, keys: [] };
+        if (xml.substr(after, 3) !== '<d>') return null;
+        var re = /<d\s*\/>|<d>|<\/d>|<k>([^<]*)<\/k>/g, depth = 0, keys = [], m;
+        re.lastIndex = after;
+        while ((m = re.exec(xml))) {
+            if (m[0] === '<d>') depth++;
+            else if (m[0] === '</d>') { depth--; if (depth === 0) return { empty: false, close: m.index, end: m.index + 4, keys: keys }; }
+            else if (m[1] !== undefined && depth === 1) keys.push(m[1]);
+        }
+        return null;
+    }
+    function putInDict(xml, key, entry) {
+        var d = scanDict(xml, key);
+        if (!d) {   /* container missing: create it just before the root </dict> */
+            var end = xml.lastIndexOf('</dict>');
+            if (end < 0) throw new Error('save has no root dict');
+            return xml.slice(0, end) + '<k>' + key + '</k><d>' + entry + '</d>' + xml.slice(end);
+        }
+        if (d.empty) return xml.slice(0, d.start) + '<d>' + entry + '</d>' + xml.slice(d.end);
+        return xml.slice(0, d.close) + entry + xml.slice(d.close);
+    }
+    function setInt(inner, k, v) {
+        var re = new RegExp('<k>' + k + '</k><i>-?\\d+</i>');
+        return re.test(inner) ? inner.replace(re, '<k>' + k + '</k><i>' + v + '</i>') : inner + '<k>' + k + '</k><i>' + v + '</i>';
+    }
+    function getInt(inner, k) {
+        var m = new RegExp('<k>' + k + '</k><i>(-?\\d+)</i>').exec(inner); return m ? parseInt(m[1], 10) : 0;
+    }
+    /* songs the save already knows (MDLM_001): [{id, name}] */
+    function knownSongs(xml) {
+        var d = scanDict(xml, 'MDLM_001'), out = [];
+        if (!d || d.empty) return out;
+        var seg = xml.slice(xml.indexOf('<k>MDLM_001</k>'), d.end), re = /<k>(\d+)<\/k><d><k>kCEK<\/k><i>\d+<\/i>([\s\S]*?)<\/d>/g, m;
+        while ((m = re.exec(seg))) { var n = /<k>2<\/k><s>([\s\S]*?)<\/s>/.exec(m[2]); out.push({ id: parseInt(m[1], 10), name: n ? n[1] : '' }); }
+        return out;
+    }
+    function levelInfo(gmd) {
+        var inner = gmdInner(gmd), nm = /<k>k2<\/k><s>([\s\S]*?)<\/s>/.exec(inner);
+        return { name: nm ? nm[1] : 'Unnamed', song: getInt(inner, 'k45'), track: getInt(inner, 'k8') };
+    }
+    /* opts.song: replace the level's song id (0 = leave as the file has it) */
+    function addSavedLevel(xml, gmd, opts) {
+        opts = opts || {};
+        var inner = gmdInner(gmd), d = scanDict(xml, 'GLM_03'), have = {};
+        (d ? d.keys : []).forEach(function (k) { have[k] = 1; });
+        var id = getInt(inner, 'k1'), forced = parseInt(opts.id, 10) || 0;
+        if (forced > 0) {                         /* fixed id (levels folder): never add the same id twice */
+            if (have[String(forced)]) { var n0 = /<k>k2<\/k><s>([\s\S]*?)<\/s>/.exec(inner); return { xml: xml, id: forced, name: n0 ? n0[1] : 'Unnamed', skipped: true }; }
+            id = forced;
+        } else if (id <= 0 || have[String(id)]) { id = 1900000000; while (have[String(id)]) id++; }
+        inner = setInt(inner, 'k1', id);
+        inner = setInt(inner, 'k21', 3);          /* 3 = level saved from online */
+        /* every real saved level in CCGameManager.dat carries these; fill them if the .gmd lacks them */
+        if (!/<k>k16<\/k><i>/.test(inner)) inner = setInt(inner, 'k16', 1);    /* level version */
+        if (!/<k>k50<\/k><i>/.test(inner)) inner = setInt(inner, 'k50', 47);   /* binary version (matches binaryVersion in the save) */
+        if (!/<k>k5<\/k><s>/.test(inner)) { var pn = /<k>playerName<\/k><s>([\s\S]*?)<\/s>/.exec(xml); inner += '<k>k5</k><s>' + (pn ? pn[1] : 'Player') + '</s>'; }  /* creator name shown in the list */
+        if (opts.song) inner = setInt(inner, 'k45', opts.song);
+        xml = putInDict(xml, 'GLM_03', '<k>' + id + '</k><d>' + inner + '</d>');
+        xml = putInDict(xml, 'GLM_07', '<k>' + id + '</k><s>1</s>');
+        var nm = /<k>k2<\/k><s>([\s\S]*?)<\/s>/.exec(inner);
+        return { xml: xml, id: id, name: nm ? nm[1] : 'Unnamed' };
+    }
+    /* register a song in MDLM_001 (the downloaded-songs list); MDLM_002 is the running counter stored in each entry's k9 */
+    function cleanTxt(t) { return String(t || '').replace(/[<>&\r\n]/g, ' ').replace(/\s+/g, ' ').trim(); }
+    function addSong(xml, o) {
+        var id = parseInt(o.id, 10);
+        if (!(id > 0)) throw new Error('Bad song id.');
+        if (knownSongs(xml).some(function (x) { return x.id === id; })) return { xml: xml, id: id, skipped: true };
+        var m = /<k>MDLM_002<\/k><i>(-?\d+)<\/i>/.exec(xml), idx = (m ? parseInt(m[1], 10) : 0) + 1;
+        if (m) xml = xml.replace(m[0], '<k>MDLM_002</k><i>' + idx + '</i>');
+        else { var end = xml.lastIndexOf('</dict>'); xml = xml.slice(0, end) + '<k>MDLM_002</k><i>' + idx + '</i>' + xml.slice(end); }
+        var mb = Math.max(0.01, Math.round((o.bytes / 1048576) * 100) / 100);
+        var entry = '<k>' + id + '</k><d><k>kCEK</k><i>6</i><k>1</k><i>' + id + '</i><k>2</k><s>' + cleanTxt(o.name || ('Song ' + id)) +
+            '</s><k>4</k><s>' + cleanTxt(o.artist || 'Custom') + '</s><k>3</k><i>' + (parseInt(o.artistId, 10) || 0) + '</i><k>5</k><r>' + mb + '</r>' +
+            (o.url ? '<k>10</k><s>' + cleanTxt(o.url) + '</s>' : '') + '<k>9</k><i>' + idx + '</i></d>';
+        return { xml: putInDict(xml, 'MDLM_001', entry), id: id };
+    }
+
+
+    function unpackBundle(buf, label) {
+        var dv = new DataView(buf);
+        if (buf.byteLength < 8 || dv.getUint32(0, false) !== 0x47444C56) throw new Error((label || 'File') + ' is not a .gdlevel file.');
+        var hl = dv.getUint32(4, true), h = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, hl))), off = 8 + hl;
+        function take(n) { var b = new Uint8Array(buf, off, n); off += n; return b; }
+        (h.songs || []).forEach(function (x) { x.data = x.size > 0 ? take(x.size) : null; });
+        (h.sfx || []).forEach(function (x) { x.data = x.size > 0 ? take(x.size) : null; });
+        h.songs = h.songs || []; h.sfx = h.sfx || [];
+        if (!h.level || !h.level.gmd) throw new Error((label || 'File') + ' has no level data.');
+        return h;
+    }
+    /* xml-only half of an import: adds the songs (only those that came with audio), then the level under its original id */
+    function applyBundle(xml, h) {
+        var audio = [], notes = [];
+        h.songs.forEach(function (x) {
+            if (!x.data) { notes.push('song ' + x.id + ' had no audio in the bundle'); return; }
+            audio.push({ name: x.id + '.mp3', data: x.data });
+            xml = addSong(xml, { id: x.id, name: x.name, artist: x.artist, artistId: x.artistId, url: x.url, bytes: x.data.length }).xml;
+        });
+        h.sfx.forEach(function (x) { if (x.data) audio.push({ name: 's' + x.id + '.ogg', data: x.data }); else notes.push('sfx ' + x.id + ' had no audio in the bundle'); });
+        var r = addSavedLevel(xml, h.level.gmd, { id: h.level.id });
+        return { xml: r.xml, audio: audio, notes: notes, name: r.name, id: r.id, skipped: !!r.skipped };
+    }
+
+    function idbPutFiles(pairs) {
+        return new Promise(function (resolve, reject) {
+            var r = indexedDB.open('gdwasm_saves', 1);
+            r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains('files')) r.result.createObjectStore('files'); };
+            r.onerror = function () { reject(new Error('IndexedDB open failed')); };
+            r.onsuccess = function () {
+                var db = r.result;
+                try {
+                    var tx = db.transaction('files', 'readwrite'), os = tx.objectStore('files');
+                    pairs.forEach(function (p) { os.put(p[1].slice().buffer, p[0]); });
+                    tx.oncomplete = function () { db.close(); resolve(); };
+                    tx.onerror = tx.onabort = function () { db.close(); reject(new Error('Could not store the mp3 in IndexedDB.')); };
+                } catch (e) { db.close(); reject(e); }
+            };
+        });
+    }
+
+    async function storeAudioFile(name, data) {
+        var FS = Module.FS;
+        try { FS.stat('/AppData'); } catch (e) { FS.mkdir('/AppData'); }
+        ['/AppData/' + name, '/Resources/' + name].forEach(function (p) {
+            FS.writeFile(p, data);
+            try { if (window.__gdSave) window.__gdSave.mark(p); } catch (e) {}
+        });
+        await idbPutFiles([['AppData/' + name, data], ['fs:/Resources/' + name, data]]);
+    }
+    function readAudio(name) {
+        var paths = ['/AppData/' + name, '/Resources/' + name];
+        for (var i = 0; i < paths.length; i++) { try { return new Uint8Array(Module.FS.readFile(paths[i])); } catch (e) {} }
+        return null;
+    }
+    function hasAudio(name) {
+        return ['/AppData/' + name, '/Resources/' + name].some(function (p) { try { return Module.FS.analyzePath(p).exists; } catch (e) { return false; } });
+    }
+
+    window.GMDSave = { addSavedLevel: addSavedLevel, addSong: addSong, knownSongs: knownSongs, levelInfo: levelInfo, scanDict: scanDict,
+        unpackBundle: unpackBundle, applyBundle: applyBundle, decodeSave: decodeSave, encodeSave: encodeSave,
+        storeAudioFile: storeAudioFile, hasAudio: hasAudio };
+})();
+</script>
+<script>
+/* User-data override layer (v2).
+   - keeps a timestamped history of every save the game makes (CC*.dat files)
+   - in real time the newest save becomes the main save: it is written to
+     /AppData/<name> and to every other path the game uses for that file, with no reload
+   - at startup the newest copy is forced into the game when it opens the file
+   Uses its own IndexedDB ('gdwasm_userdata'), independent of the older save layers. */
+(function () {
+    var DB = 'gdwasm_userdata', ST = 'files', MAXH = 30;
+    var data = window.__gdUserData = {};      /* file name -> newest bytes (injected at startup) */
+    var recs = {};                            /* file name -> {cur, t, src, path, hist:[{t,src,path,bytes}]} */
+    var db = null, frozen = false, tracked = {}, injected = {}, lastSig = {}, pend = {}, nopen = 0, tm = null, lastEvent = null;
+    var auto = true;
+    try { auto = localStorage.getItem('gdAutoOverride') !== '0'; } catch (e) {}
+    function log() { try { console.log.apply(console, ['[user]'].concat([].slice.call(arguments))); } catch (e) {} try { if (window.say) say('[user] ' + [].slice.call(arguments).join(' ')); } catch (e) {} }
+    function isSave(n) { return /^CC[^\/]*\.dat$/.test(n); }
+    function same(a, b) {
+        if (!a || !b || a.length !== b.length) return false;
+        for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+        return true;
+    }
+    function norm(p) {
+        p = String(p);
+        if (p.charAt(0) !== '/') p = Module.FS.cwd().replace(/\/$/, '') + '/' + p;
+        var out = [];
+        p.split('/').forEach(function (x) { if (!x || x === '.') return; if (x === '..') out.pop(); else out.push(x); });
+        return '/' + out.join('/');
+    }
+    function mkdirs(full) {
+        var FS = Module.FS, parts = full.split('/').filter(Boolean), cur = '';
+        for (var i = 0; i < parts.length - 1; i++) {
+            cur += '/' + parts[i];
+            try { FS.stat(cur); } catch (e) { try { FS.mkdir(cur); } catch (e2) {} }
+        }
+    }
+    function sigOf(p) { try { var st = Module.FS.stat(p); return st.size + ':' + (+st.mtime); } catch (e) { return null; } }
+    /* upgrade records written by the first version of this layer */
+    function fixRec(r) {
+        if (!r.hist) {
+            r.hist = [{ t: r.t || Date.now(), src: r.from || 'saved', path: '', bytes: r.cur }];
+            if (r.prev) r.hist.push({ t: 0, src: 'previous copy', path: '', bytes: r.prev });
+            if (r.shrunk) r.hist.push({ t: 0, src: 'smaller copy', path: '', bytes: r.shrunk });
+        }
+        delete r.prev; delete r.shrunk;
+        return r;
+    }
+    function openDb(cb) {
+        try {
+            var r = indexedDB.open(DB, 1);
+            r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains(ST)) r.result.createObjectStore(ST); };
+            r.onsuccess = function () {
+                db = r.result;
+                db.onversionchange = function () { try { db.close(); } catch (e) {} db = null; };
+                cb(true);
+            };
+            r.onerror = function () { cb(false); };
+        } catch (e) { cb(false); }
+    }
+    function put(name) {
+        if (!db) return;
+        try { db.transaction(ST, 'readwrite').objectStore(ST).put(recs[name], name); }
+        catch (e) { log('db write failed', name, e); }
+    }
+    /* make a new newest version; returns false when identical to the current one */
+    function commit(name, bytes, src, path) {
+        if (!bytes || !bytes.length) return false;
+        var r = recs[name];
+        if (r && same(r.cur, bytes)) return false;
+        var ent = { t: Date.now(), src: src, path: path || '', bytes: bytes };
+        if (!r) r = recs[name] = { cur: bytes, t: ent.t, hist: [] };
+        r.hist.unshift(ent);
+        if (r.hist.length > MAXH) r.hist.length = MAXH;
+        r.cur = bytes; r.t = ent.t; r.src = src; r.path = path || '';
+        data[name] = bytes; put(name);
+        return true;
+    }
+    /* write the newest bytes into the live filesystem: the main read path plus every path the game uses */
+    function applyLive(name, bytes, exceptPath) {
+        var targets = {};
+        Object.keys(tracked).forEach(function (f) { if (tracked[f] === name) targets[f] = 1; });
+        targets['/AppData/' + name] = 1;
+        Object.keys(targets).forEach(function (f) {
+            if (f === exceptPath) return;          /* the game just wrote this one itself */
+            try {
+                var have = null; try { have = Module.FS.readFile(f); } catch (e) {}
+                if (have && same(new Uint8Array(have), bytes)) { lastSig[f] = sigOf(f); return; }
+                mkdirs(f); Module.FS.writeFile(f, bytes); lastSig[f] = sigOf(f); delete pend[f];
+            } catch (e) { log('live write failed', f, e); }
+        });
+    }
+    function ingest(name, bytes, src, path) {
+        if (frozen || !auto || !isSave(name)) return false;
+        if (!commit(name, bytes, src, path)) return false;
+        applyLive(name, bytes, path);
+        lastEvent = { t: Date.now(), name: name, src: src, path: path || '', size: bytes.length };
+        log('NEW SAVE', name, bytes.length + ' B via ' + src + (path ? ' (' + path + ')' : '') + ' -> main save overridden live');
+        try { window.dispatchEvent(new CustomEvent('gduser-save', { detail: lastEvent })); } catch (e) {}
+        return true;
+    }
+    function track(full, name, baseline) {
+        if (tracked[full]) return;
+        tracked[full] = name;
+        lastSig[full] = baseline ? sigOf(full) : null;
+    }
+    function scanDirs(baseline) {
+        var FS = Module.FS;
+        ['/AppData', '/Resources'].forEach(function (d) {
+            var names; try { names = FS.readdir(d); } catch (e) { return; }
+            names.forEach(function (n) { if (isSave(n)) track(d + '/' + n, n, baseline); });
+        });
+    }
+    function capture(force) {
+        if (frozen || !auto) return;
+        try {
+            if (!window.__gdRuntimeReady || !window.Module || !Module.FS) return;
+            scanDirs(false);
+            Object.keys(tracked).forEach(function (full) {
+                var sg = sigOf(full);
+                if (!sg || sg === lastSig[full]) { delete pend[full]; return; }
+                if (!force && pend[full] !== sg) { pend[full] = sg; return; }   /* wait until the write has settled */
+                delete pend[full]; lastSig[full] = sg;
+                var b; try { b = new Uint8Array(Module.FS.readFile(full)); } catch (e) { return; }
+                ingest(tracked[full], b, 'file', full);
+            });
+        } catch (e) {}
+    }
+    /* patched openat / stat syscalls in gd_web.js call this */
+    window.__gdOpenHook = function (path, flags) {
+        var name = String(path).split('/').pop();
+        if (!isSave(name)) return;
+        var FS = Module.FS, full = norm(path), writing = (flags & 3) !== 0;
+        track(full, name, true);
+        if (nopen++ < 40) log('game touches', full, writing ? '(write)' : '(read)');
+        if (injected[full]) return;
+        injected[full] = true;
+        if (writing) return;
+        var d = data[name];
+        if (!d) return;
+        try {
+            var have = null; try { have = FS.readFile(full); } catch (e) {}
+            if (have && same(new Uint8Array(have), d)) return;
+            mkdirs(full); FS.writeFile(full, d); lastSig[full] = sigOf(full);
+            log('OVERRODE', full, 'with newest saved copy (' + d.length + ' B)');
+        } catch (e) { log('override failed', full, e); }
+    };
+    /* restoreSaves() calls this before the game boots */
+    window.__gdUserInit = function (cands, done) {
+        var fin = false;
+        function finish() {
+            if (fin) return; fin = true;
+            try {
+                Object.keys(data).forEach(function (n) {
+                    var f = '/AppData/' + n;
+                    mkdirs(f); Module.FS.writeFile(f, data[n]); lastSig[f] = sigOf(f);
+                });
+                scanDirs(true);
+            } catch (e) { log('pre-seed failed', e); }
+            if (!tm) tm = setInterval(capture, 500);
+            window.addEventListener('pagehide', function () { capture(true); });
+            window.addEventListener('beforeunload', function () { capture(true); });
+            document.addEventListener('visibilitychange', function () { if (document.hidden) capture(true); });
+            done();
+        }
+        function migrate() {
+            var best = {};
+            (cands || []).forEach(function (c) {
+                if (!best[c.name] || c.bytes.length > best[c.name].bytes.length) best[c.name] = c;
+            });
+            Object.keys(best).forEach(function (n) {
+                if (recs[n]) return;
+                recs[n] = { cur: best[n].bytes, t: Date.now(), src: 'imported', path: best[n].key, hist: [{ t: Date.now(), src: 'imported from ' + best[n].key, path: '', bytes: best[n].bytes }] };
+                put(n);
+                log('imported', n, best[n].bytes.length, 'bytes from old key', best[n].key);
+            });
+            Object.keys(recs).forEach(function (n) { fixRec(recs[n]); data[n] = recs[n].cur; });
+        }
+        setTimeout(function () { migrate(); finish(); }, 5000);
+        openDb(function (ok) {
+            if (!ok) { migrate(); finish(); return; }
+            try {
+                var c = db.transaction(ST, 'readonly').objectStore(ST).openCursor();
+                c.onsuccess = function () {
+                    var cur = c.result;
+                    if (cur) { recs[cur.key] = cur.value; cur.continue(); }
+                    else { migrate(); finish(); }
+                };
+                c.onerror = function () { migrate(); finish(); };
+            } catch (e) { migrate(); finish(); }
+        });
+    };
+    window.__gdUser = {
+        capture: capture,
+        ingest: ingest,
+        tracked: function () { return Object.keys(tracked); },
+        entries: function () { return recs; },
+        last: function () { return lastEvent; },
+        isAuto: function () { return auto; },
+        setAuto: function (v) { auto = !!v; try { localStorage.setItem('gdAutoOverride', auto ? '1' : '0'); } catch (e) {} log('auto override', auto ? 'ON' : 'OFF'); },
+        /* manual override: [{name, bytes}], opts.freeze stops auto capture (use before a reload) */
+        override: function (items, opts) {
+            return new Promise(function (resolve) {
+                if (opts && opts.freeze) frozen = true;
+                items.forEach(function (it) {
+                    commit(it.name, it.bytes, 'manual', '');
+                    applyLive(it.name, it.bytes, null);
+                });
+                if (!db) { resolve(false); return; }
+                try {
+                    var tx = db.transaction(ST, 'readwrite'), os = tx.objectStore(ST);
+                    items.forEach(function (it) { os.put(recs[it.name], it.name); });
+                    tx.oncomplete = function () { resolve(true); };
+                    tx.onerror = tx.onabort = function () { resolve(false); };
+                } catch (e) { resolve(false); }
+            });
+        },
+    };
+})();
+</script>
+<script>
+/* Custom levels: everything listed in levels/index.json on the CDN (same folder and mirrors as the game files)
+   is added to the player's Saved Levels (CCGameManager.dat) before the game boots.
+
+     levels/index.json         ["a.gmd", "b.gdlevel", "467339.mp3", {"file": "c.gmd", "song": 467339}]
+     levels/My Level.gmd       an exported level
+     levels/My Level.gdlevel   a level bundled with its songs / sfx
+     levels/467339.mp3         a song; the file name starts with the song id the level uses
+
+   A CDN has no folder listing, so index.json is required; split_assets.mjs generates it from your local levels folder.
+   A level already in the save is never added twice (its id comes from its file name). */
+(function () {
+    var DIR = 'levels/', GM = 'CCGameManager.dat';
+    var MAXWAIT = 30000, MAPKEY = 'gdLevelsBundles';
+    var abandoned = false;
+    function warn() { try { console.warn.apply(console, ['[levels]'].concat([].slice.call(arguments))); } catch (e) {} }
+
+    /* stable id from the file name: 1.9e9 .. 2.1e9, far above real online ids */
+    function fnv(s) {
+        var h = 0x811c9dc5, b = new TextEncoder().encode(s);
+        for (var i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; }
+        return h >>> 0;
+    }
+    function idFor(file) { return 1900000000 + (fnv(file) % 200000000); }
+
+    function loadMap() { try { return JSON.parse(localStorage.getItem(MAPKEY) || '{}') || {}; } catch (e) { return {}; } }
+    function saveMap(m) { try { localStorage.setItem(MAPKEY, JSON.stringify(m)); } catch (e) {} }
+
+    /* [{file, id?, song?}] from levels/index.json on the CDN */
+    async function listFolder() {
+        var seen = {}, out = [];
+        function add(name, opts) {
+            if (!name || name.indexOf('/') >= 0 || !/\.(gmd|gdlevel|mp3)$/i.test(name)) return;
+            var e = seen[name];
+            if (!e) { e = seen[name] = { file: name }; out.push(e); }
+            if (opts) { if (opts.id) e.id = opts.id; if (opts.song) e.song = opts.song; }
+        }
+        try {
+            var j = await window.gdCdnFetch(DIR + 'index.json', async function (url) {
+                var r = await fetch(url, { cache: 'no-store' });
+                if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+                var v = await r.json();
+                if (!Array.isArray(v) && !(v && Array.isArray(v.levels))) throw new Error('bad levels index ' + url);
+                return v;
+            });
+            (Array.isArray(j) ? j : j.levels).forEach(function (e) {
+                if (typeof e === 'string') add(e);
+                else if (e && e.file) add(e.file, e);
+            });
+        } catch (e) { warn('could not load levels index:', e && e.message || e); }
+        out.sort(function (a, b) { return a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: 'base' }); });
+        return out;
+    }
+
+    /* one file from the CDN (tries every mirror); resolves with its bytes as an ArrayBuffer */
+    function getFile(name) {
+        return window.gdCdnFetch(DIR + encodeURIComponent(name), async function (url) {
+            var r = await fetch(url);
+            if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+            return await r.arrayBuffer();
+        });
+    }
+
+    /* returns the new save bytes, or null when there is nothing to add */
+    async function apply(bytes) {
+        var G = window.GMDSave;
+        if (!G) throw new Error('GMDSave is not ready');
+        var files = await listFolder();
+        if (!files.length) return null;
+        var xml = await G.decodeSave(bytes), dirty = false, map = loadMap(), mapDirty = false;
+        var have = {}, songs = {};
+        (function () { var d = G.scanDict(xml, 'GLM_03'); (d ? d.keys : []).forEach(function (k) { have[k] = 1; }); })();
+        G.knownSongs(xml).forEach(function (s) { songs[s.id] = 1; });
+        function of(re) { return files.filter(function (f) { return re.test(f.file); }); }
+
+        /* songs first, so the levels that use them find them */
+        var mp3 = of(/\.mp3$/i);
+        for (var i = 0; i < mp3.length; i++) {
+            var name = mp3[i].file;
+            try {
+                var m = /^(\d+)(?:\D|$)/.exec(name);
+                if (!m) continue;
+                var sid = parseInt(m[1], 10);
+                if (songs[sid] && G.hasAudio(sid + '.mp3')) continue;
+                var data = new Uint8Array(await getFile(name));
+                await G.storeAudioFile(sid + '.mp3', data);
+                var title = name.replace(/\.mp3$/i, '').replace(/^\d+[\s._-]*/, '').trim() || ('Song ' + sid);
+                var rs = G.addSong(xml, { id: sid, name: title, bytes: data.length });
+                if (!rs.skipped) { xml = rs.xml; dirty = true; }
+                songs[sid] = 1;
+            } catch (err) { warn(name + ':', err && err.message || err); }
+        }
+
+        /* bundles: level + its audio in one file */
+        var bundles = of(/\.gdlevel$/i);
+        for (var b = 0; b < bundles.length; b++) {
+            var bn = bundles[b].file;
+            try {
+                if (map[bn] && have[map[bn]]) continue;
+                var h = G.unpackBundle(await getFile(bn), bn);
+                var rb = G.applyBundle(xml, h);
+                for (var a = 0; a < rb.audio.length; a++) await G.storeAudioFile(rb.audio[a].name, rb.audio[a].data);
+                xml = rb.xml; dirty = true; have[rb.id] = 1;
+                map[bn] = rb.id; mapDirty = true;
+            } catch (err) { warn(bn + ':', err && err.message || err); }
+        }
+
+        /* plain levels */
+        var gmds = of(/\.gmd$/i);
+        for (var g = 0; g < gmds.length; g++) {
+            var gn = gmds[g].file;
+            try {
+                var id = parseInt(gmds[g].id, 10) || idFor(gn);
+                if (have[id]) continue;
+                var text = new TextDecoder().decode(await getFile(gn));
+                var rl = G.addSavedLevel(xml, text, { id: id, song: parseInt(gmds[g].song, 10) || 0 });
+                if (rl.skipped) continue;
+                xml = rl.xml; dirty = true; have[id] = 1;
+            } catch (err) { warn(gn + ':', err && err.message || err); }
+        }
+        if (mapDirty) saveMap(map);
+        return dirty ? await G.encodeSave(xml) : null;
+    }
+
+    function currentBytes() {
+        var d = window.__gdUserData && window.__gdUserData[GM];
+        if (d && d.length) return d;
+        try { return new Uint8Array(Module.FS.readFile('/AppData/' + GM)); } catch (e) {}
+        return null;
+    }
+    function writeSave(bytes, freeze) {
+        return window.__gdUser.override([{ name: GM, bytes: bytes }, { name: 'CCGameManager2.dat', bytes: bytes }], freeze ? { freeze: true } : undefined);
+    }
+
+    /* very first launch: there is no save to edit yet. Wait for the game to write one,
+       add the levels to it, and reload once so the game picks it up. */
+    function waitForFirstSave() {
+        try { if (sessionStorage.getItem('gdLevelsReload')) return; } catch (e) {}
+        var tried = false;
+        function onSave(ev) {
+            if (tried || !ev.detail || ev.detail.name !== GM) return;
+            tried = true;
+            window.removeEventListener('gduser-save', onSave);
+            (async function () {
+                var bytes = currentBytes();
+                if (!bytes) return;
+                var out = await apply(bytes);
+                if (!out) return;
+                try { sessionStorage.setItem('gdLevelsReload', '1'); } catch (e) {}
+                try { if (window.Module && Module._gd_autosave_set) Module._gd_autosave_set(0); } catch (e) {}
+                if (await writeSave(out, true)) location.reload();
+            })().catch(function (e) { warn('failed:', e); });
+        }
+        window.addEventListener('gduser-save', onSave);
+        setTimeout(function () { try { if (Module._gd_request_save) Module._gd_request_save(); } catch (e) {} }, 6000);
+    }
+
+    async function preBoot() {
+        var G = window.GMDSave;
+        if (!G || !window.__gdUser || !window.__gdUser.override) return;
+        var bytes = currentBytes();
+        if (!bytes) { waitForFirstSave(); return; }
+        var out = await apply(bytes);
+        if (!out || abandoned) return;      /* too slow: the game already started, retry next load */
+        await writeSave(out, false);
+    }
+
+    var origInit = window.__gdUserInit;
+    if (typeof origInit === 'function') {
+        window.__gdUserInit = function (cands, done) {
+            origInit.call(this, cands, function () {
+                var fin = false;
+                function go() { if (fin) return; fin = true; done(); }
+                var to = setTimeout(function () { abandoned = true; go(); }, MAXWAIT);
+                preBoot().then(function () { clearTimeout(to); go(); },
+                    function (e) { warn('failed:', e); clearTimeout(to); go(); });
+            });
+        };
+    }
+})();
+</script>
+<script>
+/* Save layer: mirrors the guest's virtual filesystem into IndexedDB so saves
+   survive refresh, and asks the guest to save regularly.
+   ?saveEvery=SECONDS tunes the guest save request interval (default 30, 0 = off). */
+(function () {
+    var DB = 'gdwasm_saves', ST = 'files', PFX = 'fs:', MAXB = 64 * 1048576;
+    var db = null, last = {}, base = {}, mirrored = {}, restored = {}, started = false, soonT = null, t0 = 0;
+    var every = 30;
+    function log() { try { console.log.apply(console, ['[save]'].concat([].slice.call(arguments))); } catch (e) {} }
+    function open() {
+        try {
+            var r = indexedDB.open(DB, 1);
+            r.onupgradeneeded = function () {
+                if (!r.result.objectStoreNames.contains(ST)) r.result.createObjectStore(ST);
+            };
+            r.onsuccess = function () {
+                db = r.result;
+                db.onversionchange = function () { try { db.close(); } catch (e) {} db = null; };
+                db.onclose = function () { db = null; };
+            };
+            r.onerror = function () { log('IndexedDB open failed'); };
+        } catch (e) { log('IndexedDB unavailable', e); }
+    }
+    open(); /* keep a connection open early: it must exist before unload */
+    try {
+        if (navigator.storage && navigator.storage.persist)
+            navigator.storage.persist().then(function (g) { log('persistent storage:', g); });
+    } catch (e) {}
+    function ready() { return window.__gdRuntimeReady && window.Module && Module.FS; }
+    function sig(st) { return st.size + ':' + (+st.mtime); }
+    function scan(dir, recurse, out) {
+        var FS = Module.FS, names;
+        try { names = FS.readdir(dir); } catch (e) { return; }
+        names.forEach(function (n) {
+            if (n === '.' || n === '..') return;
+            var p = dir + '/' + n, st;
+            try { st = FS.stat(p); } catch (e) { return; }
+            if (FS.isDir(st.mode)) { if (recurse) scan(p, true, out); }
+            else if (FS.isFile(st.mode)) out[p] = st;
+        });
+    }
+    function sync(why) {
+        if (!started || !ready()) return;
+        if (!db) { open(); return; }
+        var cur = {}, res = {}, puts = [], p;
+        scan('/Resources', false, res); /* new/changed top-level files only */
+        /* The game reads saves from /AppData, but writes some of them (e.g.
+           CCGameManager.dat) into /Resources. Mirror those into /AppData so
+           they are found on the next load and stored under the /AppData key. */
+        for (p in res) {
+            var mm = p.match(/^\/Resources\/([^\/]+\.dat)$/);
+            if (!mm || base[p] === sig(res[p]) || mirrored[p] === sig(res[p])) continue;
+            try {
+                try { Module.FS.stat('/AppData'); } catch (e) { Module.FS.mkdir('/AppData'); }
+                Module.FS.writeFile('/AppData/' + mm[1], Module.FS.readFile(p));
+                mirrored[p] = sig(res[p]);
+                log('mirrored', p, '-> /AppData/' + mm[1]);
+            } catch (e) { log('mirror failed', p, e); }
+        }
+        scan('/AppData', true, cur);
+        for (p in res) {
+            if (/^\/Resources\/[^\/]+\.dat$/.test(p)) continue; /* stored via /AppData copy */
+            if (base[p] !== sig(res[p])) cur[p] = res[p];
+        }
+        for (p in cur) if (last[p] !== sig(cur[p]) && cur[p].size <= MAXB) puts.push(p);
+        if (!puts.length) return;
+        try {
+            var tx = db.transaction(ST, 'readwrite'), os = tx.objectStore(ST);
+            puts.forEach(function (p) {
+                var data = Module.FS.readFile(p), key = PFX + p;
+                var r = restored[p];
+                if (r && !r.warned && Date.now() - r.t < 120000) {
+                    r.warned = true;
+                    console.warn('[save] the game rewrote restored file ' + p + ' ' +
+                        Math.round((Date.now() - r.t) / 1000) + 's after restore: ' +
+                        r.size + ' -> ' + data.byteLength + ' bytes');
+                }
+                /* keep the previous copy if a file suddenly shrinks a lot
+                   (e.g. defaults overwriting a real save) */
+                var g = os.get(key);
+                os.put(data, key);
+                g.onsuccess = function () {
+                    var old = g.result;
+                    if (old && old.byteLength > 2000 && data.byteLength < old.byteLength * 0.5) {
+                        os.put(old, 'bak:' + p);
+                        console.warn('[save] ' + p + ' shrank ' + old.byteLength + ' -> ' +
+                            data.byteLength + ' bytes; previous copy kept as backup');
+                    }
+                };
+                last[p] = sig(cur[p]);
+            });
+            tx.onabort = tx.onerror = function () {
+                puts.forEach(function (p) { delete last[p]; });
+                log('write failed, will retry');
+            };
+            log('saved', puts.join(', '), why || '');
+        } catch (e) {
+            puts.forEach(function (p) { delete last[p]; });
+            log('sync failed', e);
+        }
+    }
+    function requestGuestSave() {
+        try { if (Module._gd_request_save) Module._gd_request_save(); } catch (e) {}
+        setTimeout(function () { sync('after guest save'); }, 1500);
+        setTimeout(function () { sync('after guest save'); }, 5000);
+    }
+    window.__gdSave = {
+        sync: sync,
+        mark: function (p) { try { var st = Module.FS.stat(p); last[p] = sig(st); restored[p] = { size: st.size, t: Date.now() }; } catch (e) {} },
+        soon: function () {
+            if (soonT) return;
+            soonT = setTimeout(function () { soonT = null; sync('guest write'); }, 400);
+        },
+        start: function () {
+            if (started) return;
+            try { var b = {}; scan('/Resources', false, b); for (var p in b) base[p] = sig(b[p]); } catch (e) {}
+            started = true;
+            setInterval(function () { sync('interval'); }, 3000);
+            if (every > 0) setInterval(function () {
+                if (!document.hidden && window.__gdInputReady === true) requestGuestSave();
+            }, every * 1000);
+            log('save layer started; guest save every', every, 's');
+        },
+        saveNow: requestGuestSave,
+    };
+    function flush(why) { sync(why); }
+    window.addEventListener('pagehide', function () { flush('pagehide'); });
+    window.addEventListener('beforeunload', function () { flush('beforeunload'); });
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            flush('hidden');
+            setTimeout(function () { sync('hidden+1s'); }, 1000);
+            setTimeout(function () { sync('hidden+3s'); }, 3000);
+        }
+    });
+})();
+</script>
+</body></html>
